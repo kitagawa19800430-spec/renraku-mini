@@ -1,71 +1,111 @@
 <!DOCTYPE html><html lang="ja"><meta charset="utf-8">
-<title>保護者用：1日の様子</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>保護者用：1日の様子（s001）</title>
 <body>
 <h2>保護者用：1日の様子（s001）</h2>
-<div id="auth"></div>
+
+<!-- 認証UI -->
+<div id="auth" style="border:1px solid #ccc;padding:8px;margin:8px 0;"></div>
 
 <section style="border:1px solid #ccc;padding:8px;margin:8px 0;">
   <h3>朝のひと言</h3>
-  <textarea id="gtext" rows="2" placeholder="例：少し眠そうです"></textarea>
+  <textarea id="gtext" rows="2" style="width:260px;" placeholder="例：少し眠そうです"></textarea>
   <button id="post">送信</button>
-  <div id="reply"></div>
+  <div id="reply" style="margin-top:6px;"></div>
 </section>
 
 <section style="border:1px solid #ccc;padding:8px;margin:8px 0;">
   <h3>公開された「1日の様子」（直近7件）</h3>
-  <div id="list"></div>
+  <div id="list">（ログイン後に表示）</div>
 </section>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { 
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, signOut 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const firebaseConfig = {/*apiKey: "AIzaSyBzRI3ReUylTAyRhUusWiSyShUMA-mqfAw",
+/* ← あなたの Firebase 設定を貼る */
+const firebaseConfig = {
+  apiKey: "AIzaSyBzRI3ReUylTAyRhUusWiSyShUMA-mqfAw",
   authDomain: "web1-fc8d7.firebaseapp.com",
   projectId: "web1-fc8d7",
   storageBucket: "web1-fc8d7.firebasestorage.app",
   messagingSenderId: "186079003085",
   appId: "1:186079003085:web:b4bfb7a359017366e70484",
-  measurementId: "G-HHSR5ZTG15"*/};
+  measurementId: "G-HHSR5ZTG15"
+};
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db   = getFirestore(app);
+const sid  = "s001";
+const $ = s=>document.querySelector(s);
 
-const sid="s001"; const $=s=>document.querySelector(s);
-
-function authUI(u){
-  const el=$("#auth");
+/* 認証UI：未ログインならメール＋パスワードの入力欄を表示 */
+function renderAuth(u){
+  const el = $("#auth");
   if(!u){
-    el.innerHTML=`<input id="em" placeholder="Email"><input id="pw" type="password" placeholder="Password">
-    <button id="in">ログイン</button><button id="up">新規登録</button>`;
-    $("#in").onclick=()=>signInWithEmailAndPassword(auth,$("#em").value,$("#pw").value);
-    $("#up").onclick=()=>createUserWithEmailAndPassword(auth,$("#em").value,$("#pw").value).then(()=>alert("登録しました。学校で閲覧許可設定後に見られます。"));
+    el.innerHTML = `
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <input id="em" placeholder="メールアドレス" />
+        <input id="pw" placeholder="パスワード" type="password" />
+        <button id="in">ログイン</button>
+        <button id="up">新規登録</button>
+      </div>
+      <small>※初回は「新規登録」を押してください</small>
+    `;
+    $("#in").onclick = ()=>signInWithEmailAndPassword(auth,$("#em").value,$("#pw").value).catch(e=>alert(e.message));
+    $("#up").onclick = ()=>createUserWithEmailAndPassword(auth,$("#em").value,$("#pw").value)
+      .then(()=>alert("登録しました。学校の設定後に閲覧できます。"))
+      .catch(e=>alert(e.message));
   }else{
-    el.innerHTML=`${u.email} <button id="out">サインアウト</button>`;
-    $("#out").onclick=()=>signOut(auth);
-    init();
+    el.innerHTML = `${u.email} <button id="out">サインアウト</button>`;
+    $("#out").onclick = ()=>signOut(auth);
   }
 }
-onAuthStateChanged(auth,authUI);
 
-async function init(){
-  // 朝のひと言（当日）
-  const d=new Date().toISOString().slice(0,10);
-  const ref=doc(db,`students/${sid}/morning/${d}`);
-  const snap=await getDoc(ref);
-  const x=snap.data(); $("#reply").textContent=x?.teacherReply? `担任：${x.teacherReply}`:'';
-  $("#post").onclick=async()=>{
-    await setDoc(ref,{date:d, guardianText:$("#gtext").value||"", guardianBy:auth.currentUser.uid, guardianAt:serverTimestamp(), status:"open"},{merge:true});
-    alert('送信しました'); location.reload();
+/* 状態監視：ログイン後に画面を有効化 */
+onAuthStateChanged(auth, async (u)=>{
+  renderAuth(u);
+  if(!u){ $("#list").textContent="（ログインしてください）"; return; }
+
+  // 朝のひと言：当日ドキュメント
+  const d = new Date().toISOString().slice(0,10);
+  const ref = doc(db,`students/${sid}/morning/${d}`);
+  const snap = await getDoc(ref);
+  const x = snap.data();
+  $("#reply").textContent = x?.teacherReply ? `担任：${x.teacherReply}` : "";
+
+  $("#post").onclick = async ()=>{
+    try{
+      await setDoc(ref,{
+        date:d,
+        guardianText: $("#gtext").value || "",
+        guardianBy: u.uid,
+        guardianAt: serverTimestamp(),
+        status: "open"
+      },{merge:true});
+      alert("送信しました");
+      location.reload();
+    }catch(e){ alert("送信エラー："+e.message); }
   };
 
-  // 直近7件（index不要なクエリ構成）
-  const q=query(collection(db,`students/${sid}/entries`), orderBy('date','desc'), limit(7));
-  const list=await getDocs(q);
-  let html=""; list.forEach(d=>{const x=d.data(); if(x.status!=='published') return;
-    html+=`<article style="border:1px solid #ddd;padding:8px;margin:6px 0;">
-      <b>${x.date}</b><div>${x.finalText||""}</div></article>`;});
-  $("#list").innerHTML=html||"公開中の記録はありません。";
-}
-</script></body></html>
+  // 直近7件の公開記事
+  const q = query(collection(db,`students/${sid}/entries`), orderBy('date','desc'), limit(7));
+  const list = await getDocs(q);
+  let html = "";
+  list.forEach(d=>{
+    const t = d.data();
+    if(t.status!=='published') return;
+    html += `<article style="border:1px solid #ddd;padding:8px;margin:6px 0;">
+      <b>${t.date}</b><div>${t.finalText||""}</div></article>`;
+  });
+  $("#list").innerHTML = html || "公開中の記録はありません。";
+});
+</script>
+</body></html>
