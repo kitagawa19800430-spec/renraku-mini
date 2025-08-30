@@ -1,95 +1,39 @@
 <!DOCTYPE html><html lang="ja"><meta charset="utf-8">
-<title>教員用：1日の様子</title><meta name="viewport" content="width=device-width,initial-scale=1">
-<body>
-<h2>教員用：1日の様子（s001）</h2>
-<div id="auth"></div>
-
-<section style="border:1px solid #ccc;padding:8px;margin:8px 0;">
-  <h3>朝のひと言（当日）</h3><div id="morn"></div>
-</section>
-
-<section style="border:1px solid #ccc;padding:8px;margin:8px 0;">
-  <h3>本日の記録</h3>
-  <label>日付 <input id="date" type="date"></label><br>
-  <label>事実メモ（AI下書きの元）<br><textarea id="memo" rows="3"></textarea></label><br>
-  <button id="gen">AI下書き</button><br><br>
-  <label>下書き／公開文<br><textarea id="text" rows="6"></textarea></label><br>
-  <label>状態<select id="status"><option>draft</option><option>published</option></select></label>
-  <button id="save">保存</button>
-  <pre id="msg"></pre>
-</section>
-
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Authテスト</title>
+<body><h2>Googleログインテスト</h2><div id="auth"></div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, signInWithRedirect, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-const firebaseConfig = {/apiKey: "AIzaSyBzRI3ReUylTAyRhUusWiSyShUMA-mqfAw",
+const firebaseConfig = { /apiKey: "AIzaSyBzRI3ReUylTAyRhUusWiSyShUMA-mqfAw",
   authDomain: "web1-fc8d7.firebaseapp.com",
   projectId: "web1-fc8d7",
   storageBucket: "web1-fc8d7.firebasestorage.app",
   messagingSenderId: "186079003085",
   appId: "1:186079003085:web:b4bfb7a359017366e70484",
-  measurementId: "G-HHSR5ZTG15"/};
-const AI_PROXY_URL = "https://script.google.com/macros/s/AKfycbzafjczzFiFysdbTu0JV4UkPgpipvG5gn5khMehyDh5IjSNJa0IO9TU4tBCTbSqUcA8/exec"; // ←GASのURL
+  measurementId: "G-HHSR5ZTG15/ };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+const $ = s=>document.querySelector(s);
 
-const sid="s001"; const $=s=>document.querySelector(s);
-$("#date").value = new Date().toISOString().slice(0,10);
+function showLogin(){
+  document.getElementById('auth').innerHTML =
+    `<button id="gin">Googleでサインイン</button>`;
+  document.getElementById('gin').onclick = async ()=>{
+    try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+    catch (e) {
+      // ポップアップがブロックされたらリダイレクトで再挑戦
+      await signInWithRedirect(auth, new GoogleAuthProvider());
+    }
+  };
+}
 
-function authUI(u){
-  const el=$("#auth");
-  if(!u){ el.innerHTML=`<button id="in">Googleでサインイン</button>`;
-    $("#in").onclick=()=>signInWithPopup(auth,new GoogleAuthProvider());
-  }else{
-    el.innerHTML=`${u.email} <button id="out">サインアウト</button>`;
-    $("#out").onclick=()=>signOut(auth);
-    loadMorning(); loadEntry();
+onAuthStateChanged(auth, u=>{
+  if(!u) { showLogin(); }
+  else {
+    document.getElementById('auth').innerHTML =
+      `${u.email} <button id="out">サインアウト</button>`;
+    document.getElementById('out').onclick = ()=>signOut(auth);
   }
-}
-onAuthStateChanged(auth,authUI);
-
-async function loadMorning(){
-  const d=$("#date").value;
-  const ref = doc(db,`students/${sid}/morning/${d}`);
-  const snap = await getDoc(ref);
-  const x = snap.data();
-  $("#morn").innerHTML = x ? `
-    <div>保護者：${x.guardianText||''}</div>
-    <textarea id="reply" rows="2" placeholder="必要なら短文返信"></textarea>
-    <button id="sendReply">返信する</button>
-  ` : `<div>本日の投稿はまだありません</div>`;
-  const btn=$("#sendReply");
-  if(btn) btn.onclick=async()=>{
-    await updateDoc(ref,{teacherReply:$("#reply").value||"", teacherBy:auth.currentUser.uid, teacherAt:serverTimestamp(), status:"replied"});
-    alert('返信しました');
-  };
-}
-
-async function loadEntry(){
-  const d=$("#date").value;
-  const ref = doc(db,`students/${sid}/entries/${d}`);
-  const snap = await getDoc(ref);
-  const x = snap.data();
-  if(x){ $("#memo").value=x.memoFacts||""; $("#text").value=(x.finalText||x.aiDraft||""); $("#status").value=x.status||"draft"; }
-}
-
-$("#gen").onclick=async()=>{
-  const res = await fetch(AI_PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({memoFacts: $("#memo").value, style:"標準"})});
-  const j = await res.json(); $("#text").value = j.draft || "";
-};
-
-$("#save").onclick=async()=>{
-  const d=$("#date").value;
-  const ref = doc(db,`students/${sid}/entries/${d}`);
-  const data = {
-    date:d, memoFacts:$("#memo").value||"", finalText:$("#text").value||"", status:$("#status").value||"draft",
-    updatedBy:auth.currentUser.uid, updatedAt:serverTimestamp(), createdBy:auth.currentUser.uid, createdAt:serverTimestamp()
-  };
-  await setDoc(ref,data,{merge:true});
-  $("#msg").textContent='保存しました';
-};
+});
 </script></body></html>
