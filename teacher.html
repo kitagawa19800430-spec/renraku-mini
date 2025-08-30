@@ -1,57 +1,18 @@
-<!DOCTYPE html>
-<html lang="ja">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>教員用：1日の様子（s001）</title>
-<body>
-<h2>教員用：1日の様子（s001）</h2>
-
-<div id="auth" style="margin:8px 0; padding:8px; border:1px solid #ccc;"></div>
-<pre id="log" style="white-space:pre-wrap;border:1px solid #ddd;padding:6px;margin:8px 0;"></pre>
-
-<section style="border:1px solid #ccc;padding:8px;margin:8px 0;">
-  <h3>朝のひと言（当日）</h3>
-  <div id="morn">（ログイン後に表示）</div>
-</section>
-
-<section style="border:1px solid #ccc;padding:8px;margin:8px 0;">
-  <h3>本日の記録</h3>
-  <label>日付 <input id="date" type="date"></label><br>
-  <label>事実メモ（AI下書きの元）<br>
-    <textarea id="memo" rows="3" style="width:260px;"></textarea>
-  </label><br>
-  <button id="gen">AI下書き</button><br><br>
-  <label>下書き／公開文<br>
-    <textarea id="text" rows="6" style="width:260px;"></textarea>
-  </label><br>
-  <label>状態
-    <select id="status">
-      <option value="draft">draft</option>
-      <option value="published">published</option>
-    </select>
-  </label>
-  <button id="save">保存</button>
-  <pre id="msg" style="white-space:pre-wrap;"></pre>
-</section>
-
+<!-- ▼ ここから最小デバッグ版：必ずログが出る -->
 <script type="module">
 const L = (t)=>document.getElementById('log').textContent += t+"\n";
-L("HTML OK");
+L("module start");
 
-// ===== Firebase SDK =====
+// Firebaseモジュール
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import {
-  getFirestore, doc, getDoc, setDoc, updateDoc,
-  collection, query, orderBy, limit, getDocs,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-L("Firebase modules loaded");
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
+         signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+L("imports OK");
 
-// ===== 必ず置き換える設定 =====
+// ← あなたの config
 const firebaseConfig = {
   apiKey: "AIzaSyBzRI3ReUylTAyRhUusWiSyShUMA-mqfAw",
   authDomain: "web1-fc8d7.firebaseapp.com",
@@ -61,116 +22,34 @@ const firebaseConfig = {
   appId: "1:186079003085:web:b4bfb7a359017366e70484",
   measurementId: "G-HHSR5ZTG15
 };
-const AI_PROXY_URL = "https://script.google.com/macros/s/AKfycbzafjczzFiFysdbTu0JV4UkPgpipvG5gn5khMehyDh5IjSNJa0IO9TU4tBCTbSqUcA8/exec"; // GASのURL
 
-// ===== 初期化 =====
 let app, auth, db;
-try {
-  app  = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db   = getFirestore(app);
-  L("initializeApp / getAuth / getFirestore OK");
-} catch(e){ L("初期化エラー: "+(e.message||e)); }
+try { app = initializeApp(firebaseConfig); L("initializeApp OK"); }
+catch(e){ L("initializeApp ERR: "+e.message); }
 
-const sid = "s001";
-const $ = s => document.querySelector(s);
-$("#date").value = new Date().toISOString().slice(0,10);
+try { auth = getAuth(app); db = getFirestore(app); L("auth/db OK"); }
+catch(e){ L("auth/db ERR: "+e.message); }
 
-// ===== 認証UI =====
-function renderAuthUI(user){
-  const el = $("#auth");
-  if(!user){
+function render(u){
+  const el = document.getElementById('auth');
+  if(!u){
     el.innerHTML = `
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <button id="gin">Googleでサインイン</button>
-        <input id="em" placeholder="メール"><input id="pw" type="password" placeholder="パスワード">
-        <button id="ein">メールでログイン</button>
-        <button id="eup">（初回）メールで新規登録</button>
-      </div>`;
-    $("#gin").onclick = async ()=>{ try{ await signInWithPopup(auth,new GoogleAuthProvider()); }catch(e){ L("Google失敗: "+e.message);} };
-    $("#ein").onclick = async ()=>{ try{ await signInWithEmailAndPassword(auth,em.value,pw.value);}catch(e){ L("メールログイン失敗: "+e.message);} };
-    $("#eup").onclick = async ()=>{ try{ await createUserWithEmailAndPassword(auth,em.value,pw.value); L("新規登録OK"); }catch(e){ L("新規登録失敗: "+e.message);} };
+      <button id="gin">Googleでサインイン</button>
+      <input id="em" placeholder="メール"><input id="pw" type="password" placeholder="パスワード">
+      <button id="ein">メールでログイン</button><button id="eup">新規登録</button>`;
+    document.getElementById('gin').onclick = ()=>signInWithPopup(auth,new GoogleAuthProvider());
+    document.getElementById('ein').onclick = ()=>signInWithEmailAndPassword(auth, em.value, pw.value);
+    document.getElementById('eup').onclick = ()=>createUserWithEmailAndPassword(auth, em.value, pw.value);
   }else{
-    el.innerHTML = `${user.email} <button id="out">サインアウト</button>`;
-    $("#out").onclick = ()=>signOut(auth);
+    el.innerHTML = `${u.email} <button id="out">サインアウト</button>`;
+    document.getElementById('out').onclick = ()=>signOut(auth);
   }
 }
 
-// 認証状態監視
-onAuthStateChanged(auth, async (u)=>{
-  L("onAuthStateChanged: " + (u ? "ログイン済" : "未ログイン"));
-  renderAuthUI(u);
-  if(!u){ $("#morn").textContent = "（まずログインしてください）"; return; }
-  await loadMorning();
-  await loadEntry();
-});
+onAuthStateChanged(auth, (u)=>{ L("onAuthStateChanged: "+(u?"ログイン済":"未ログイン")); render(u); });
 
-// ===== 朝のひと言 =====
-async function loadMorning(){
-  try{
-    const d = $("#date").value;
-    const ref = doc(db, `students/${sid}/morning/${d}`);
-    const snap = await getDoc(ref);
-    const x = snap.data();
-    if (!x) { $("#morn").textContent = "本日の保護者からの投稿はまだありません。"; return; }
-    $("#morn").innerHTML = `
-      <div><b>保護者：</b>${x.guardianText||""}</div>
-      <textarea id="reply" rows="2" style="width:260px;" placeholder="必要時の返信"></textarea>
-      <button id="sendReply">返信する</button>`;
-    $("#sendReply").onclick = async ()=>{
-      await updateDoc(ref,{ teacherReply: $("#reply").value||"", teacherBy: auth.currentUser.uid, teacherAt: serverTimestamp(), status: "replied" });
-      alert("返信しました");
-    };
-    L("loadMorning OK");
-  }catch(e){ L("loadMorning ERR: "+(e.message||e)); }
-}
-
-// ===== 本日の記録 =====
-async function loadEntry(){
-  try{
-    const d = $("#date").value;
-    const ref = doc(db, `students/${sid}/entries/${d}`);
-    const snap = await getDoc(ref);
-    const x = snap.data();
-    if(x){ $("#memo").value=x.memoFacts||""; $("#text").value=x.finalText||x.aiDraft||""; $("#status").value=x.status||"draft"; }
-    L("loadEntry OK");
-  }catch(e){ L("loadEntry ERR: "+(e.message||e)); }
-}
-
-// ===== AI下書き =====
-$("#gen").onclick = async ()=>{
-  $("#msg").textContent = "AI下書き生成中…";
-  try{
-    const r = await fetch(AI_PROXY_URL,{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ memoFacts: $("#memo").value||"", style:"標準" })
-    });
-    const j = await r.json();
-    $("#text").value = j.draft || "（生成に失敗しました）";
-    $("#msg").textContent = "AI下書きを反映しました。";
-  }catch(e){ $("#msg").textContent = "AI呼び出しエラー："+e.message; }
-};
-
-// ===== 保存 =====
-$("#save").onclick = async ()=>{
-  if(!auth.currentUser){ alert("まずログインしてください"); return; }
-  try{
-    const d = $("#date").value;
-    const ref = doc(db, `students/${sid}/entries/${d}`);
-    await setDoc(ref,{
-      date:d, memoFacts: $("#memo").value||"", finalText: $("#text").value||"",
-      status: $("#status").value||"draft",
-      updatedBy: auth.currentUser.uid, updatedAt: serverTimestamp(),
-      createdBy: auth.currentUser.uid, createdAt: serverTimestamp()
-    },{merge:true});
-    $("#msg").textContent="保存しました。";
-    L("save OK");
-  }catch(e){ $("#msg").textContent="保存エラー："+e.message; L("save ERR: "+e.message); }
-};
-
-// 予期せぬエラーもログに出す
+// 予期せぬエラー表示
 window.addEventListener("error", e=>L("window.error: "+e.message));
 window.addEventListener("unhandledrejection", e=>L("promise reject: "+(e.reason?.message||e.reason)));
 </script>
-</body>
-</html>
+<!-- ▲ 最小デバッグ版 -->
