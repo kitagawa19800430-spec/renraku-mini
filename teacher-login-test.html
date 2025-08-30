@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>teacher login test</title>
+<div id="auth"></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
+         signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = { /  apiKey: "AIzaSyBzRI3ReUylTAyRhUusWiSyShUMA-mqfAw",
+  authDomain: "web1-fc8d7.firebaseapp.com",
+  projectId: "web1-fc8d7",
+  storageBucket: "web1-fc8d7.firebasestorage.app",
+  messagingSenderId: "186079003085",
+  appId: "1:186079003085:web:b4bfb7a359017366e70484",
+  };
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const $=s=>document.querySelector(s);
+
+function ui(u){
+  if(!u){
+    document.getElementById('auth').innerHTML = `
+      <button id="gin">Googleでサインイン</button>
+      <input id="em" placeholder="メール"><input id="pw" type="password" placeholder="パスワード">
+      <button id="ein">メールでログイン</button><button id="eup">新規登録</button>`;
+    document.getElementById('gin').onclick = ()=>signInWithPopup(auth,new GoogleAuthProvider());
+    document.getElementById('ein').onclick = ()=>signInWithEmailAndPassword(auth,em.value,pw.value);
+    document.getElementById('eup').onclick = ()=>createUserWithEmailAndPassword(auth,em.value,pw.value);
+  }else{
+    document.getElementById('auth').innerHTML = `${u.email} <button id="out">サインアウト</button>`;
+    document.getElementById('out').onclick = ()=>signOut(auth);
+  }
+}
+onAuthStateChanged(auth, ui);
+</script>
