@@ -1,36 +1,77 @@
-<!doctype html><meta charset="utf-8"><title>teacher login test</title>
-<div id="auth"></div>
+<!doctype html><html lang="ja"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ログインテスト（teacher）</title>
+<h1>ログインテスト（teacher）</h1>
+<p>ここが見えていればHTMLは配信OK。下のログに進捗が出ます。</p>
+<div id="auth" style="border:1px solid #ccc;padding:8px;margin:8px 0;"></div>
+<pre id="log" style="white-space:pre-wrap;border:1px solid #ddd;padding:8px;"></pre>
+
 <script type="module">
+const log = (t)=>document.getElementById('log').textContent += t + "\n";
+log("ページ読み込みOK");
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
          signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-const firebaseConfig = { /  apiKey: "AIzaSyBzRI3ReUylTAyRhUusWiSyShUMA-mqfAw",
+log("Firebaseモジュール読込OK");
+
+// ← あなたの firebaseConfig を丸ごと貼る（measurementId は不要）
+const firebaseConfig = {
+  apiKey: "AIzaSyBzRI3ReUylTAyRhUusWiSyShUMA-mqfAw",
   authDomain: "web1-fc8d7.firebaseapp.com",
   projectId: "web1-fc8d7",
   storageBucket: "web1-fc8d7.firebasestorage.app",
   messagingSenderId: "186079003085",
   appId: "1:186079003085:web:b4bfb7a359017366e70484",
-  };
+  measurementId: "G-HHSR5ZTG15"
+};
 
-const app=initializeApp(firebaseConfig);
-const auth=getAuth(app);
-const $=s=>document.querySelector(s);
+let app, auth;
+try {
+  app  = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  log("initializeApp / getAuth OK");
+} catch(e){
+  log("初期化エラー: " + (e.message||e));
+}
 
-function ui(u){
+function render(u){
+  const el = document.getElementById('auth');
   if(!u){
-    document.getElementById('auth').innerHTML = `
+    el.innerHTML = `
       <button id="gin">Googleでサインイン</button>
-      <input id="em" placeholder="メール"><input id="pw" type="password" placeholder="パスワード">
-      <button id="ein">メールでログイン</button><button id="eup">新規登録</button>`;
-    document.getElementById('gin').onclick = ()=>signInWithPopup(auth,new GoogleAuthProvider());
-    document.getElementById('ein').onclick = ()=>signInWithEmailAndPassword(auth,em.value,pw.value);
-    document.getElementById('eup').onclick = ()=>createUserWithEmailAndPassword(auth,em.value,pw.value);
+      <input id="em" placeholder="メール">
+      <input id="pw" type="password" placeholder="パスワード">
+      <button id="ein">メールでログイン</button>
+      <button id="eup">（初回）新規登録</button>
+    `;
+    document.getElementById('gin').onclick = async ()=>{
+      try { await signInWithPopup(auth,new GoogleAuthProvider()); }
+      catch(e){ log("Googleログイン失敗: "+(e.message||e)); }
+    };
+    document.getElementById('ein').onclick = async ()=>{
+      try { await signInWithEmailAndPassword(auth, em.value, pw.value); }
+      catch(e){ log("メールログイン失敗: "+(e.message||e)); }
+    };
+    document.getElementById('eup').onclick = async ()=>{
+      try { await createUserWithEmailAndPassword(auth, em.value, pw.value); log("新規登録OK"); }
+      catch(e){ log("新規登録失敗: "+(e.message||e)); }
+    };
   }else{
-    document.getElementById('auth').innerHTML = `${u.email} <button id="out">サインアウト</button>`;
+    el.innerHTML = `${u.email} <button id="out">サインアウト</button>`;
     document.getElementById('out').onclick = ()=>signOut(auth);
   }
 }
-onAuthStateChanged(auth, ui);
+
+onAuthStateChanged(auth, (u)=>{ 
+  log("onAuthStateChanged: " + (u? "ログイン済" : "未ログイン"));
+  render(u);
+});
+
+// 画面にもエラーを表示
+window.addEventListener("error", (e)=> log("window.error: "+e.message));
+window.addEventListener("unhandledrejection",(e)=> log("promise reject: "+(e.reason?.message||e.reason)));
 </script>
+</html>
