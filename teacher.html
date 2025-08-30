@@ -58,7 +58,7 @@ const firebaseConfig = {
   storageBucket: "web1-fc8d7.firebasestorage.app",
   messagingSenderId: "186079003085",
   appId: "1:186079003085:web:b4bfb7a359017366e70484",
-  measurementId: "G-HHSR5ZTG15"
+  measurementId: "G-HHSR5ZTG15
 };
 const AI_PROXY_URL = "https://script.google.com/macros/s/AKfycbzafjczzFiFysdbTu0JV4UkPgpipvG5gn5khMehyDh5IjSNJa0IO9TU4tBCTbSqUcA8/exec"; // ←GASのWebアプリURL
 
@@ -85,7 +85,7 @@ function renderAuthUI(user){
         <button id="ein">メールでログイン</button>
         <button id="eup">（初回）メールで新規登録</button>
       </div>
-      <small>※Google/メールのどちらでもOK。登録後は管理側で先生権限を付与します。</small>
+      <small>※Google/メールのどちらでもOK。登録後に先生権限を付与します。</small>
     `;
     $("#gin").onclick = async ()=>{
       try { await signInWithPopup(auth, new GoogleAuthProvider()); }
